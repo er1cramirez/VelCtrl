@@ -3,30 +3,18 @@
 #include <string>
 #include <UavStateMachine.h>
 
+
 namespace flair {
-    namespace gui {
-        class PushButton;
-        class DoubleSpinBox;
-    }
-    namespace filter {
-        class TrajectoryGenerator2DCircle;
-    }
-    namespace meta {
-        class MetaVrpnObject;
-    }
-    namespace sensor {
-        class TargetController;
-    }
-    namespace core {
-        class Matrix;
-    }
+namespace core {
+    class Matrix;
+}
 }
 
 /**
  * @brief Enumeration of available controller types
  */
 enum class ControllerType {
-    P_CONTROL,              // Simple proportional control (your original)
+    P_CONTROL,              // Simple proportional control
     FIRST_ORDER_SMC,        // First order sliding mode with boundary layer
     SUPER_TWISTING,         // Super-twisting algorithm (2nd order)
     CONTINUOUS_NESTED,      // Continuous nested SMC (3rd order)
@@ -45,6 +33,15 @@ enum class EstimatorType {
 
 /**
  * @brief Robust velocity controller using sliding mode control
+ * 
+ * Implements various sliding mode controllers for robust velocity control:
+ * - P Control: Simple proportional control with gravity compensation
+ * - First-Order SMC: Classical sliding mode with boundary layer to reduce chattering
+ * - Super-Twisting: Second-order sliding mode with continuous control
+ * - Continuous Nested SMC: Third-order sliding mode for improved precision
+ * - Higher-Order STA: Fourth-order super-twisting for ultimate precision
+ * 
+ * Also provides state estimators when only position measurements are available.
  */
 class RobustVelCtrl {
 public:
@@ -73,6 +70,13 @@ public:
     
     /**
      * @brief Set controller parameters
+     * 
+     * Parameters depend on controller type:
+     * - P_CONTROL: "kv" (proportional gain), "mg" (mass*gravity)
+     * - FIRST_ORDER_SMC: "lambda" (surface slope), "K" (control gain), "phi" (boundary layer), "mg"
+     * - SUPER_TWISTING: "lambda" (surface slope), "alpha" (first gain), "beta" (second gain), "mg"
+     * - CONTINUOUS_NESTED: "k1" (first gain), "k2" (second gain), "k3" (third gain), "mg"
+     * - HIGHER_ORDER_STA: "k1", "k2", "k3", "k4" (control gains), "mg"
      * 
      * @param param_name Parameter name (controller-specific)
      * @param param_value Parameter value
@@ -121,6 +125,20 @@ public:
      * @return EstimatorType Current estimator type
      */
     EstimatorType getEstimatorType() const;
+    
+    /**
+     * @brief Get estimated velocity (when using state estimator)
+     * 
+     * @return flair::core::Vector3Df Estimated velocity
+     */
+    flair::core::Vector3Df getEstimatedVelocity() const;
+    
+    /**
+     * @brief Get estimated acceleration (when using state estimator)
+     * 
+     * @return flair::core::Vector3Df Estimated acceleration
+     */
+    flair::core::Vector3Df getEstimatedAcceleration() const;
 
 private:
     class Impl;
