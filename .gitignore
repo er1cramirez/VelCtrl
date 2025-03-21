@@ -1,0 +1,4 @@
+# Ingone the eigen-3.4.0 directory
+uav/src/eigen-3.4.0
+# Ignore the build directory
+build

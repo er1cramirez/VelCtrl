@@ -1,33 +1,26 @@
 #pragma once
 
-#include <eigen3/Eigen/Dense>
-#include <vector>
 #include <string>
+#include <UavStateMachine.h>
 
 namespace flair {
+    namespace gui {
+        class PushButton;
+        class DoubleSpinBox;
+    }
+    namespace filter {
+        class TrajectoryGenerator2DCircle;
+    }
+    namespace meta {
+        class MetaVrpnObject;
+    }
+    namespace sensor {
+        class TargetController;
+    }
     namespace core {
         class Matrix;
     }
 }
-
-// Forward declaration for Vector3Df (assuming this is your vector type)
-// class Vector3Df;
-
-/**
- * @brief Convert between Vector3Df and Eigen::Vector3d
- * 
- * @param vec Input Vector3Df
- * @return Eigen::Vector3d Converted vector
- */
-Eigen::Vector3d toEigen(const flair::core::Vector3Df& vec);
-
-/**
- * @brief Convert between Eigen::Vector3d and Vector3Df
- * 
- * @param vec Input Eigen::Vector3d
- * @return Vector3Df Converted vector
- */
-flair::core::Vector3Df fromEigen(const Eigen::Vector3d& vec);
 
 /**
  * @brief Enumeration of available controller types
