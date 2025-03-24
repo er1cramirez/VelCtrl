@@ -209,122 +209,6 @@ float VelCtrl::ComputeCustomThrust(void) {
     // ProcessUpdate(output);
     return customThrustValue;
 }
-void VelCtrl::calculate_virtual_control(Quaternion& q_d, Vector3Df& omega_d,
-    const Vector3Df& ui, const Vector3Df& uip, float psi_d, float psip_d) 
-{
-    // Calculate normalized thrust direction and its derivative
-    Vector3Df uu, uup;
-    float norm = ui.GetNorm();  // This is the thrust magnitude
-    float norm3 = norm * norm * norm;
-    float u = ui.x * uip.x + ui.y * uip.y + ui.z * uip.z;
-
-    uu = ui;
-    uu.Normalize();  // Unit vector in thrust direction
-
-    // Derivative of the unit thrust vector
-    uup.x = uip.x / norm - ui.x * u / norm3;
-    uup.y = uip.y / norm - ui.y * u / norm3;
-    uup.z = uip.z / norm - ui.z * u / norm3;
-
-    float u_3 = sqrtf(-2 * uu.z + 2);
-
-    // Calculate desired quaternion based on thrust direction
-    Quaternion refQuaternion;
-    refQuaternion.q0 = u_3 * cosf(psi_d / 2) / 2;
-    refQuaternion.q1 = (-uu.x * sinf(psi_d / 2) + uu.y * cosf(psi_d / 2)) / u_3;
-    refQuaternion.q2 = (-uu.x * cosf(psi_d / 2) - uu.y * sinf(psi_d / 2)) / u_3;
-    refQuaternion.q3 = sinf(psi_d / 2) * u_3 / 2;
-
-    // Calculate desired angular velocity
-    Vector3Df refOmega;
-    refOmega.x = -uup.x * sinf(psi_d) + uup.y * cosf(psi_d) + uup.z * (uu.x * sinf(psi_d) - uu.y * cosf(psi_d)) / (1 - uu.z);
-    refOmega.y = -uup.x * cosf(psi_d) - uup.y * sinf(psi_d) + uup.z * (uu.x * cosf(psi_d) + uu.y * sinf(psi_d)) / (1 - uu.z);
-    refOmega.z = psip_d - (-uu.x * uup.y + uu.y * uup.x) / (1 - uu.z);
-
-    customThrustValue = -norm;
-    q_d = refQuaternion;
-    omega_d = refOmega;
-}
-
-float VelCtrl::dot(const Vector3Df& v1, const Vector3Df& v2) {
-    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-}
-
-void VelCtrl::calculate_hlc(Vector3Df& u, Vector3Df& u_dot,
-    const Vector3Df& xi_c, const Vector3Df& xi, 
-    const Vector3Df& xi_dot, const Vector3Df& xi_ddot
-    )
-{
-    Vector3Df dv = xi_c - xi;
-    Vector3Df dv_dot = - xi_dot;
-
-    Vector3Df V = xi_dot;
-    Vector3Df V_dot = xi_ddot;
-
-    // Distance and direction calculations
-    float d = dv.GetNorm();
-    Vector3Df R = dv;
-    R.Normalize();
-    float d_dot = dot(dv, dv_dot) / d; 
-    Vector3Df R_dot = (dv_dot * d - dv * d_dot) / (d * d);
-    // Define constant vectors
-    Vector3Df Tv(0.0f, 0.0f, 1.0f);
-    Vector3Df T_dot(0.0f, 0.0f, 0.0f);
-
-    // Membership functions
-    float c1 = (float)c1SpinBox->Value();
-    float mu_far = tanhf(c1 * d);
-    float mu_close = 1.0f / coshf(c1 * d); // sech(x) = 1/cosh(x)
-
-    // First derivatives of membership functions
-    float sech_c1d = 1.0f / coshf(c1 * d);
-    float mu_far_dot = c1 * sech_c1d * sech_c1d * d_dot;
-    float mu_close_dot = -c1 * sech_c1d * tanhf(c1 * d) * d_dot;
-
-    //Positive scalar value of current height(tangential distance)
-    float d_t = -xi.z;
-    float d_t_dot = -xi_dot.z;
-
-    // Gain parameters
-    float c2_k = (float)ctSpinBox->Value();
-    float c2_T = c2_k * tanhf(c1 * d_t);
-    float c2_T_dot = c2_k * (c1 * powf(1.0f / coshf(c1 * d_t), 2.0f) * d_t_dot);
-
-    float c2_R = (float)crSpinBox->Value();
-    float c2_R_dot = 0.0f;
-
-    // Desired velocity vector - changed order of operations
-    Vector3Df Vd = (R * (mu_far * c2_R) + Tv * (mu_close * c2_T));
-
-    // First derivative of desired velocity - changed order of operations
-    Vector3Df Vd_dot = (R * (mu_far * c2_R_dot) + R * (mu_far_dot * c2_R) + R_dot * (mu_far * c2_R)) + 
-                      (Tv * (mu_close * c2_T_dot) + Tv * (mu_close_dot * c2_T) + T_dot * (mu_close * c2_T));
-
-    // Control law
-    float kv = (float)kvSpinBox->Value();
-    float mg = (float)thrustSpinBox->Value();//0.39f;
-
-    // Calculate control outputs
-    u = (V - Vd) * (-kv) - Vector3Df(0.0f, 0.0f, mg);
-    u_dot = (V_dot - Vd_dot) * (-kv);
-
-    // Update output matrix with control signals
-    output->GetMutex();
-    output->SetValueNoMutex(1, 0, u.x);
-    output->SetValueNoMutex(2, 0, u.y);
-    output->SetValueNoMutex(3, 0, u.z);
-    output->ReleaseMutex();
-    output->SetDataTime(GetTime());
-
-    // update velocity reference matrix
-    velocityRef->GetMutex();
-    velocityRef->SetValueNoMutex(0, 0, V.x);
-    velocityRef->SetValueNoMutex(1, 0, Vd.x);
-    velocityRef->SetValueNoMutex(2, 0, V.y);
-    velocityRef->SetValueNoMutex(3, 0, Vd.y);
-    velocityRef->ReleaseMutex();
-    velocityRef->SetDataTime(GetTime());
-}
 
 
 void VelCtrl::PositionValues(Vector3Df &u_d, Vector3Df &u_dot_d, float &yaw_ref) {
@@ -483,4 +367,122 @@ void VelCtrl::VrpnPositionHold(void) {
     behaviourMode=BehaviourMode_t::PositionHold;
     SetOrientationMode(OrientationMode_t::Custom);
     Thread::Info("VelCtrl: holding position\n");
+}
+
+void VelCtrl::calculate_virtual_control(Quaternion& q_d, Vector3Df& omega_d,
+    const Vector3Df& ui, const Vector3Df& uip, float psi_d, float psip_d) 
+{
+    // Calculate normalized thrust direction and its derivative
+    Vector3Df uu, uup;
+    float norm = ui.GetNorm();  // This is the thrust magnitude
+    float norm3 = norm * norm * norm;
+    float u = ui.x * uip.x + ui.y * uip.y + ui.z * uip.z;
+
+    uu = ui;
+    uu.Normalize();  // Unit vector in thrust direction
+
+    // Derivative of the unit thrust vector
+    uup.x = uip.x / norm - ui.x * u / norm3;
+    uup.y = uip.y / norm - ui.y * u / norm3;
+    uup.z = uip.z / norm - ui.z * u / norm3;
+
+    float u_3 = sqrtf(-2 * uu.z + 2);
+
+    // Calculate desired quaternion based on thrust direction
+    Quaternion refQuaternion;
+    refQuaternion.q0 = u_3 * cosf(psi_d / 2) / 2;
+    refQuaternion.q1 = (-uu.x * sinf(psi_d / 2) + uu.y * cosf(psi_d / 2)) / u_3;
+    refQuaternion.q2 = (-uu.x * cosf(psi_d / 2) - uu.y * sinf(psi_d / 2)) / u_3;
+    refQuaternion.q3 = sinf(psi_d / 2) * u_3 / 2;
+
+    // Calculate desired angular velocity
+    Vector3Df refOmega;
+    refOmega.x = -uup.x * sinf(psi_d) + uup.y * cosf(psi_d) + uup.z * (uu.x * sinf(psi_d) - uu.y * cosf(psi_d)) / (1 - uu.z);
+    refOmega.y = -uup.x * cosf(psi_d) - uup.y * sinf(psi_d) + uup.z * (uu.x * cosf(psi_d) + uu.y * sinf(psi_d)) / (1 - uu.z);
+    refOmega.z = psip_d - (-uu.x * uup.y + uu.y * uup.x) / (1 - uu.z);
+
+    customThrustValue = -norm;
+    q_d = refQuaternion;
+    omega_d = refOmega;
+}
+
+float VelCtrl::dot(const Vector3Df& v1, const Vector3Df& v2) {
+    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+}
+
+void VelCtrl::calculate_hlc(Vector3Df& u, Vector3Df& u_dot,
+    const Vector3Df& xi_c, const Vector3Df& xi, 
+    const Vector3Df& xi_dot, const Vector3Df& xi_ddot
+    )
+{
+    Vector3Df dv = xi_c - xi;
+    Vector3Df dv_dot = - xi_dot;
+
+    Vector3Df V = xi_dot;
+    Vector3Df V_dot = xi_ddot;
+
+    // Distance and direction calculations
+    float d = dv.GetNorm();
+    Vector3Df R = dv;
+    R.Normalize();
+    float d_dot = dot(dv, dv_dot) / d; 
+    Vector3Df R_dot = (dv_dot * d - dv * d_dot) / (d * d);
+    // Define constant vectors
+    Vector3Df Tv(0.0f, 0.0f, 1.0f);
+    Vector3Df T_dot(0.0f, 0.0f, 0.0f);
+
+    // Membership functions
+    float c1 = (float)c1SpinBox->Value();
+    float mu_far = tanhf(c1 * d);
+    float mu_close = 1.0f / coshf(c1 * d); // sech(x) = 1/cosh(x)
+
+    // First derivatives of membership functions
+    float sech_c1d = 1.0f / coshf(c1 * d);
+    float mu_far_dot = c1 * sech_c1d * sech_c1d * d_dot;
+    float mu_close_dot = -c1 * sech_c1d * tanhf(c1 * d) * d_dot;
+
+    //Positive scalar value of current height(tangential distance)
+    float d_t = -xi.z;
+    float d_t_dot = -xi_dot.z;
+
+    // Gain parameters
+    float c2_k = (float)ctSpinBox->Value();
+    float c2_T = c2_k * tanhf(c1 * d_t);
+    float c2_T_dot = c2_k * (c1 * powf(1.0f / coshf(c1 * d_t), 2.0f) * d_t_dot);
+
+    float c2_R = (float)crSpinBox->Value();
+    float c2_R_dot = 0.0f;
+
+    // Desired velocity vector - changed order of operations
+    Vector3Df Vd = (R * (mu_far * c2_R) + Tv * (mu_close * c2_T));
+
+    // First derivative of desired velocity - changed order of operations
+    Vector3Df Vd_dot = (R * (mu_far * c2_R_dot) + R * (mu_far_dot * c2_R) + R_dot * (mu_far * c2_R)) + 
+                      (Tv * (mu_close * c2_T_dot) + Tv * (mu_close_dot * c2_T) + T_dot * (mu_close * c2_T));
+
+    // Control law
+    float kv = (float)kvSpinBox->Value();
+    float mg = (float)thrustSpinBox->Value();//0.39f;
+
+    // Calculate control outputs
+    u = (V - Vd) * (-kv) - Vector3Df(0.0f, 0.0f, mg);
+    // u_dot = (V_dot - Vd_dot) * (-kv);
+    u_dot = Vector3Df(0.0f, 0.0f, 0.0f);//acceleration is not known
+
+    // Update output matrix with control signals
+    output->GetMutex();
+    output->SetValueNoMutex(1, 0, u.x);
+    output->SetValueNoMutex(2, 0, u.y);
+    output->SetValueNoMutex(3, 0, u.z);
+    output->ReleaseMutex();
+    output->SetDataTime(GetTime());
+
+    // update velocity reference matrix
+    velocityRef->GetMutex();
+    velocityRef->SetValueNoMutex(0, 0, V.x);
+    velocityRef->SetValueNoMutex(1, 0, Vd.x);
+    velocityRef->SetValueNoMutex(2, 0, V.y);
+    velocityRef->SetValueNoMutex(3, 0, Vd.y);
+    velocityRef->ReleaseMutex();
+    velocityRef->SetDataTime(GetTime());
 }
