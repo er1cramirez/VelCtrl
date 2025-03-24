@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Script to compile the VelCtrl project
-
+rm -r $FLAIR_ROOT/flair-build/eric_src/VelCtrl
+mkdir -p $FLAIR_ROOT/flair-build/eric_src/VelCtrl
 # Change to the build directory
 cd $FLAIR_ROOT/flair-build/eric_src/VelCtrl
 

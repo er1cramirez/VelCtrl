@@ -82,6 +82,7 @@ class VelCtrl : public flair::meta::UavStateMachine {
         flair::gui::DoubleSpinBox *c1SpinBox;
         flair::gui::DoubleSpinBox *xGoto;
         flair::gui::DoubleSpinBox *yGoto;
+        flair::gui::DoubleSpinBox *zOffset;
         float yawHold;
 
         flair::gui::PushButton *startCircle,*stopCircle,*positionHold;

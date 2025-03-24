@@ -142,13 +142,14 @@ VelCtrl::VelCtrl(TargetController *controller): UavStateMachine(controller), beh
 
 
     thrustSpinBox = new DoubleSpinBox(setupTab->NewRow(), "T", " kgm/s2", -10, 10, 0.0001, 4,0.398);
-    kvSpinBox = new DoubleSpinBox(setupTab->LastRowLastCol(), "kv", " ", 0, 1, 0.01, 4,0.11);
-    crSpinBox = new DoubleSpinBox(setupTab->LastRowLastCol(), "cr", " ", 0, 1, 0.01, 4,0.12);
-    ctSpinBox = new DoubleSpinBox(setupTab->LastRowLastCol(), "ct", " ", 0, 1, 0.01, 4,0.11);
-    c1SpinBox = new DoubleSpinBox(setupTab->LastRowLastCol(), "c1", " ", 0, 1, 0.01, 4,1.01);
+    kvSpinBox = new DoubleSpinBox(setupTab->LastRowLastCol(), "kv", " ", 0, 3, 0.01, 3,0.11);
+    crSpinBox = new DoubleSpinBox(setupTab->LastRowLastCol(), "cr", " ", 0, 3, 0.01, 3,0.12);
+    ctSpinBox = new DoubleSpinBox(setupTab->LastRowLastCol(), "ct", " ", 0, 3, 0.01, 3,0.11);
+    c1SpinBox = new DoubleSpinBox(setupTab->LastRowLastCol(), "c1", " ", 0, 3, 0.01, 2,1.15);
 
     xGoto = new DoubleSpinBox(setupTab->NewRow(), "x", " m", -10, 10, 0.1, 2, 2);
     yGoto = new DoubleSpinBox(setupTab->LastRowLastCol(), "y", " m", -10, 10, 0.1, 2, 2);
+    zOffset = new DoubleSpinBox(setupTab->LastRowLastCol(), "z_offset", " m", -10, 10, 0.1, 2, 0.3);
 
 }
 
@@ -271,7 +272,7 @@ void VelCtrl::calculate_hlc(Vector3Df& u, Vector3Df& u_dot,
     Vector3Df T_dot(0.0f, 0.0f, 0.0f);
 
     // Membership functions
-    float c1 = c1SpinBox->Value();
+    float c1 = (float)c1SpinBox->Value();
     float mu_far = tanhf(c1 * d);
     float mu_close = 1.0f / coshf(c1 * d); // sech(x) = 1/cosh(x)
 
@@ -285,11 +286,11 @@ void VelCtrl::calculate_hlc(Vector3Df& u, Vector3Df& u_dot,
     float d_t_dot = -xi_dot.z;
 
     // Gain parameters
-    float c2_k = ctSpinBox->Value();
+    float c2_k = (float)ctSpinBox->Value();
     float c2_T = c2_k * tanhf(c1 * d_t);
     float c2_T_dot = c2_k * (c1 * powf(1.0f / coshf(c1 * d_t), 2.0f) * d_t_dot);
 
-    float c2_R = crSpinBox->Value();
+    float c2_R = (float)crSpinBox->Value();
     float c2_R_dot = 0.0f;
 
     // Desired velocity vector - changed order of operations
@@ -300,8 +301,8 @@ void VelCtrl::calculate_hlc(Vector3Df& u, Vector3Df& u_dot,
                       (Tv * (mu_close * c2_T_dot) + Tv * (mu_close_dot * c2_T) + T_dot * (mu_close * c2_T));
 
     // Control law
-    float kv = kvSpinBox->Value();
-    float mg = thrustSpinBox->Value();//0.39f;
+    float kv = (float)kvSpinBox->Value();
+    float mg = (float)thrustSpinBox->Value();//0.39f;
 
     // Calculate control outputs
     u = (V - Vd) * (-kv) - Vector3Df(0.0f, 0.0f, mg);
@@ -334,6 +335,7 @@ void VelCtrl::PositionValues(Vector3Df &u_d, Vector3Df &u_dot_d, float &yaw_ref)
     uavVrpn->GetPosition(uav_pos);
     uavVrpn->GetSpeed(uav_vel);
 
+    uav_pos.z+=(float)zOffset->Value();
     uav_pos.To2Dxy(uav_2Dpos);
     uav_vel.To2Dxy(uav_2Dvel);
 
@@ -342,7 +344,7 @@ void VelCtrl::PositionValues(Vector3Df &u_d, Vector3Df &u_dot_d, float &yaw_ref)
         vel_error=uav_2Dvel;
         yaw_ref=yawHold;
     } else { //Circle
-        Vector3Df target_pos = {xGoto->Value(), yGoto->Value(), uav_pos.z};
+        Vector3Df target_pos = {(float)xGoto->Value(), (float)yGoto->Value(), uav_pos.z};
         Vector2Df target_2Dpos;
 
 
