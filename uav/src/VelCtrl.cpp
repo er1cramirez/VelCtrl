@@ -151,6 +151,21 @@ VelCtrl::VelCtrl(TargetController *controller): UavStateMachine(controller), beh
     yGoto = new DoubleSpinBox(setupTab->LastRowLastCol(), "y", " m", -10, 10, 0.1, 2, 2);
     zOffset = new DoubleSpinBox(setupTab->LastRowLastCol(), "z_offset", " m", -10, 10, 0.1, 2, 0.3);
 
+    // Add data to log
+    // Custom logs MatrixDescriptor 
+    MatrixDescriptor *customLogsDescriptor = new MatrixDescriptor(9, 1); 
+    customLogsDescriptor->SetElementName(0, 0, "Desired_vx"); 
+    customLogsDescriptor->SetElementName(1, 0, "Desired_vy"); 
+    customLogsDescriptor->SetElementName(2, 0, "Desired_vz");
+    customLogsDescriptor->SetElementName(3, 0, "Vx");
+    customLogsDescriptor->SetElementName(4, 0, "Vy");
+    customLogsDescriptor->SetElementName(5, 0, "Vz");
+    customLogsDescriptor->SetElementName(6, 0, "x");
+    customLogsDescriptor->SetElementName(7, 0, "y");
+    customLogsDescriptor->SetElementName(8, 0, "z");
+    customLogs = new Matrix(this, customLogsDescriptor, floatType, "CustomLogs"); 
+    delete customLogsDescriptor; 
+    AddDataToControlLawLog(customLogs);
 }
 
 VelCtrl::~VelCtrl() {
@@ -365,6 +380,7 @@ void VelCtrl::VrpnPositionHold(void) {
     uX->Reset();
     uY->Reset();
     behaviourMode=BehaviourMode_t::PositionHold;
+    SetThrustMode(ThrustMode_t::Default);//check if it is necessary
     SetOrientationMode(OrientationMode_t::Custom);
     Thread::Info("VelCtrl: holding position\n");
 }
@@ -485,4 +501,18 @@ void VelCtrl::calculate_hlc(Vector3Df& u, Vector3Df& u_dot,
     velocityRef->SetValueNoMutex(3, 0, Vd.y);
     velocityRef->ReleaseMutex();
     velocityRef->SetDataTime(GetTime());
+
+    // Update custom logs matrix
+    // Update custom logs 
+    customLogs->GetMutex();
+    customLogs->SetValue(0, 0, Vd.x);
+    customLogs->SetValue(1, 0, Vd.y);
+    customLogs->SetValue(2, 0, Vd.z);
+    customLogs->SetValue(3, 0, V.x);
+    customLogs->SetValue(4, 0, V.y);
+    customLogs->SetValue(5, 0, V.z);
+    customLogs->SetValue(6, 0, xi.x);
+    customLogs->SetValue(7, 0, xi.y);
+    customLogs->SetValue(8, 0, xi.z);
+    customLogs->ReleaseMutex();
 }

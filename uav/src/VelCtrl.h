@@ -74,6 +74,7 @@ class VelCtrl : public flair::meta::UavStateMachine {
 
         flair::core::Vector2Df posHold;
         flair::core::Matrix *output;
+        flair::core::Matrix *customLogs;
         flair::core::Matrix *velocityRef;
         flair::gui::DoubleSpinBox *thrustSpinBox;
         flair::gui::DoubleSpinBox *kvSpinBox;
