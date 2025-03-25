@@ -328,10 +328,10 @@ void VelCtrl::StartCircle(void) {
         Thread::Warn("VelCtrl: already in circle mode\n");
         return;
     }
-    if (!SetThrustMode(ThrustMode_t::Custom)) {
-        Thread::Warn("could not StartTransportation error SetThrustMode(OrientationMode_t::Custom)\n");
-        return;
-    }
+    // if (!SetThrustMode(ThrustMode_t::Custom)) {
+    //     Thread::Warn("could not StartTransportation error SetThrustMode(OrientationMode_t::Custom)\n");
+    //     return;
+    // }
     if (SetOrientationMode(OrientationMode_t::Custom)) {
         Thread::Info("VelCtrl: start circle\n");
     } else {
@@ -359,6 +359,7 @@ void VelCtrl::StopCircle(void) {
         Thread::Warn("VelCtrl: not in circle mode\n");
         return;
     }
+    // SetThrustMode(ThrustMode_t::Default);//check if it is necessary
     circle->FinishTraj();
     //GetJoystick()->Rumble(0x70);
     Thread::Info("VelCtrl: finishing circle\n");
@@ -380,7 +381,7 @@ void VelCtrl::VrpnPositionHold(void) {
     uX->Reset();
     uY->Reset();
     behaviourMode=BehaviourMode_t::PositionHold;
-    SetThrustMode(ThrustMode_t::Default);//check if it is necessary
+    
     SetOrientationMode(OrientationMode_t::Custom);
     Thread::Info("VelCtrl: holding position\n");
 }
@@ -417,7 +418,7 @@ void VelCtrl::calculate_virtual_control(Quaternion& q_d, Vector3Df& omega_d,
     refOmega.y = -uup.x * cosf(psi_d) - uup.y * sinf(psi_d) + uup.z * (uu.x * cosf(psi_d) + uu.y * sinf(psi_d)) / (1 - uu.z);
     refOmega.z = psip_d - (-uu.x * uup.y + uu.y * uup.x) / (1 - uu.z);
 
-    customThrustValue = -norm;
+    customThrustValue = -(float)thrustSpinBox->Value();//-norm;
     q_d = refQuaternion;
     omega_d = refOmega;
 }

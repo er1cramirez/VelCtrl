@@ -13,6 +13,6 @@ $FLAIR_ROOT/flair-src/scripts/cmake_codelite_outofsource.sh $FLAIR_ROOT/eric_src
 cd build
 
 # Run make install
-make install
+make install -j$(nproc)
 
 echo "VelCtrl project has been compiled and installed successfully!"
