@@ -20,6 +20,9 @@ namespace flair {
     namespace gui {
         class PushButton;
         class DoubleSpinBox;
+        class Tab;
+        class TabWidget;
+        class GroupBox;
     }
     namespace filter {
         class TrajectoryGenerator2DCircle;
@@ -45,7 +48,7 @@ class VelCtrl : public flair::meta::UavStateMachine {
 	enum class BehaviourMode_t {
             Default,
             PositionHold,
-            Circle
+            Custom,
         };
 
         BehaviourMode_t behaviourMode;
@@ -65,7 +68,7 @@ class VelCtrl : public flair::meta::UavStateMachine {
         void calculate_hlc(flair::core::Vector3Df& u, flair::core::Vector3Df& u_dot,
                 const flair::core::Vector3Df& xi_c, const flair::core::Vector3Df& xi, 
                 const flair::core::Vector3Df& xi_dot, const flair::core::Vector3Df& xi_ddot);
-        void PositionValues(flair::core::Vector3Df &u_d,flair::core::Vector3Df &u_dot_d,float &yaw_ref);
+        void PositionValues(flair::core::Vector2Df &pos_error,flair::core::Vector2Df &vel_error,float &yaw_ref);
         float dot(const flair::core::Vector3Df& v1, const flair::core::Vector3Df& v2);
         flair::core::AhrsData *GetReferenceOrientation(void) override;
         void SignalEvent(Event_t event) override;
@@ -77,7 +80,9 @@ class VelCtrl : public flair::meta::UavStateMachine {
         flair::core::Matrix *customLogs;
         flair::core::Matrix *velocityRef;
         flair::gui::DoubleSpinBox *thrustSpinBox;
-        flair::gui::DoubleSpinBox *kvSpinBox;
+        flair::gui::DoubleSpinBox *kp_xS;
+        flair::gui::DoubleSpinBox *kp_yS;
+        flair::gui::DoubleSpinBox *kp_zS;
         flair::gui::DoubleSpinBox *crSpinBox;
         flair::gui::DoubleSpinBox *ctSpinBox;
         flair::gui::DoubleSpinBox *c1SpinBox;
@@ -87,7 +92,7 @@ class VelCtrl : public flair::meta::UavStateMachine {
         float yawHold;
 
         flair::gui::PushButton *startCircle,*stopCircle,*positionHold;
-        flair::meta::MetaVrpnObject *targetVrpn,*uavVrpn;
+        flair::meta::MetaVrpnObject *uavVrpn;
         flair::filter::TrajectoryGenerator2DCircle *circle;
         flair::core::AhrsData *customReferenceOrientation,*customOrientation;
         float customThrustValue; // Store the thrust value calculated in calculate_virtual_control

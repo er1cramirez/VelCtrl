@@ -21,7 +21,6 @@
 #include <FrameworkManager.h>
 #include <VrpnClient.h>
 #include <MetaVrpnObject.h>
-#include <TrajectoryGenerator2DCircle.h>
 #include <Matrix.h>
 #include <cmath>
 #include <Tab.h>
@@ -36,6 +35,7 @@
 #include <TabWidget.h>
 #include <Label.h>
 #include <DoubleSpinBox.h>
+#include <GroupBox.h>
 
 using namespace std;
 using namespace flair::core;
@@ -51,13 +51,10 @@ VelCtrl::VelCtrl(TargetController *controller): UavStateMachine(controller), beh
     
     if(vrpnclient->ConnectionType()==VrpnClient::Xbee) {
         uavVrpn = new MetaVrpnObject(uav->ObjectName(),(uint8_t)0);
-        targetVrpn=new MetaVrpnObject("target",1);
     } else if (vrpnclient->ConnectionType()==VrpnClient::Vrpn) {
         uavVrpn = new MetaVrpnObject(uav->ObjectName());
-        targetVrpn=new MetaVrpnObject("target");
     } else if (vrpnclient->ConnectionType()==VrpnClient::VrpnLite) {
         uavVrpn = new MetaVrpnObject(uav->ObjectName());
-        targetVrpn=new MetaVrpnObject("target");
     }
     
     //set vrpn as failsafe altitude sensor for mamboedu as us in not working well for the moment
@@ -66,22 +63,15 @@ VelCtrl::VelCtrl(TargetController *controller): UavStateMachine(controller), beh
     }
     
     getFrameworkManager()->AddDeviceToLog(uavVrpn);
-    getFrameworkManager()->AddDeviceToLog(targetVrpn);
     vrpnclient->Start();
     
     uav->GetAhrs()->YawPlot()->AddCurve(uavVrpn->State()->Element(2),DataPlot::Green);
 																 
-    startCircle=new PushButton(GetButtonsLayout()->NewRow(),"start_circle");
-    stopCircle=new PushButton(GetButtonsLayout()->LastRowLastCol(),"stop_circle");
+    startCircle=new PushButton(GetButtonsLayout()->NewRow(),"start_custom");
+    stopCircle=new PushButton(GetButtonsLayout()->LastRowLastCol(),"stop_custom");
     positionHold=new PushButton(GetButtonsLayout()->LastRowLastCol(),"position hold");
 
-    circle=new TrajectoryGenerator2DCircle(vrpnclient->GetLayout()->NewRow(),"circle");
-    uavVrpn->xPlot()->AddCurve(circle->GetMatrix()->Element(0,0),DataPlot::Blue);
-    uavVrpn->yPlot()->AddCurve(circle->GetMatrix()->Element(0,1),DataPlot::Blue);
-    uavVrpn->VxPlot()->AddCurve(circle->GetMatrix()->Element(1,0),DataPlot::Blue);
-    uavVrpn->VyPlot()->AddCurve(circle->GetMatrix()->Element(1,1),DataPlot::Blue);
-    uavVrpn->XyPlot()->AddCurve(circle->GetMatrix()->Element(0,1),circle->GetMatrix()->Element(0,0),DataPlot::Blue,"circle");
-
+    // This is the default control law, it is used to control the UAV in the default mode
     uX=new Pid(setupLawTab->At(1,0),"u_x");
     uX->UseDefaultPlot(graphLawTab->NewRow());
     uY=new Pid(setupLawTab->At(1,1),"u_y");
@@ -101,6 +91,22 @@ VelCtrl::VelCtrl(TargetController *controller): UavStateMachine(controller), beh
     Tab *setupTab = new Tab(tabWidget, "Setup");
     Tab *graphTab = new Tab(tabWidget, "Graphes");
     Tab *refTab = new Tab(tabWidget, "references");
+
+    GroupBox *vf_groupbox = new GroupBox(setupTab->NewRow(), "Vector Field");
+    crSpinBox = new DoubleSpinBox(vf_groupbox->NewRow(), "cr", " ", 0, 3, 0.01, 3,0.12);
+    ctSpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "ct", " ", 0, 3, 0.01, 3,0.11);
+    c1SpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "c1", " ", 0, 3, 0.01, 2,1.15);
+
+    GroupBox *ctrl_groupbox = new GroupBox(setupTab->NewRow(), "Control Law");
+    thrustSpinBox = new DoubleSpinBox(ctrl_groupbox->At(0,0), "Thrust", " kgm/s2", -10, 10, 0.0001, 4,0.398);
+    kp_xS = new DoubleSpinBox(ctrl_groupbox->NewRow(), "kp_x", " ", 0, 3, 0.01, 3,0.11);
+    kp_yS = new DoubleSpinBox(ctrl_groupbox->LastRowLastCol(), "kp_y", " ", 0, 3, 0.01, 3,0.11);
+    kp_zS = new DoubleSpinBox(ctrl_groupbox->LastRowLastCol(), "kp_z", " ", 0, 3, 0.01, 3,0.11);
+    
+    GroupBox *target_groupbox = new GroupBox(setupTab->NewRow(), "Target");
+    xGoto = new DoubleSpinBox(target_groupbox->NewRow(), "x", " m", -10, 10, 0.1, 2, 2);
+    yGoto = new DoubleSpinBox(target_groupbox->LastRowLastCol(), "y", " m", -10, 10, 0.1, 2, 2);
+    zOffset = new DoubleSpinBox(target_groupbox->LastRowLastCol(), "z_offset", " m", -10, 10, 0.1, 2, 0.3);
 
     // Create output matrix for control signals (thrust, quaternion, angular velocity)
     MatrixDescriptor *desc = new MatrixDescriptor(8, 1);
@@ -138,19 +144,6 @@ VelCtrl::VelCtrl(TargetController *controller): UavStateMachine(controller), beh
     DataPlot1D *Vy_plot = new DataPlot1D(refTab->LastRowLastCol(), "Vy", -2, 2);
     Vy_plot->AddCurve(velocityRef->Element(2, 0),DataPlot::Blue);
     Vy_plot->AddCurve(velocityRef->Element(3, 0),DataPlot::Red);
-
-
-
-    thrustSpinBox = new DoubleSpinBox(setupTab->NewRow(), "T", " kgm/s2", -10, 10, 0.0001, 4,0.398);
-    kvSpinBox = new DoubleSpinBox(setupTab->LastRowLastCol(), "kv", " ", 0, 3, 0.01, 3,0.11);
-    crSpinBox = new DoubleSpinBox(setupTab->LastRowLastCol(), "cr", " ", 0, 3, 0.01, 3,0.12);
-    ctSpinBox = new DoubleSpinBox(setupTab->LastRowLastCol(), "ct", " ", 0, 3, 0.01, 3,0.11);
-    c1SpinBox = new DoubleSpinBox(setupTab->LastRowLastCol(), "c1", " ", 0, 3, 0.01, 2,1.15);
-
-    xGoto = new DoubleSpinBox(setupTab->NewRow(), "x", " m", -10, 10, 0.1, 2, 2);
-    yGoto = new DoubleSpinBox(setupTab->LastRowLastCol(), "y", " m", -10, 10, 0.1, 2, 2);
-    zOffset = new DoubleSpinBox(setupTab->LastRowLastCol(), "z_offset", " m", -10, 10, 0.1, 2, 0.3);
-
     // Add data to log
     // Custom logs MatrixDescriptor 
     MatrixDescriptor *customLogsDescriptor = new MatrixDescriptor(9, 1); 
@@ -171,6 +164,7 @@ VelCtrl::VelCtrl(TargetController *controller): UavStateMachine(controller), beh
 VelCtrl::~VelCtrl() {
 }
 
+//Default Functions
 const AhrsData *VelCtrl::GetOrientation(void) const {
     //get yaw from vrpn
 		Quaternion vrpnQuaternion;
@@ -180,39 +174,84 @@ const AhrsData *VelCtrl::GetOrientation(void) const {
     Quaternion ahrsQuaternion;
     Vector3Df ahrsAngularSpeed;
     GetDefaultOrientation()->GetQuaternionAndAngularRates(ahrsQuaternion, ahrsAngularSpeed);
-
     Euler ahrsEuler=ahrsQuaternion.ToEuler();
     ahrsEuler.yaw=vrpnQuaternion.ToEuler().yaw;
     Quaternion mixQuaternion=ahrsEuler.ToQuaternion();
-
     customOrientation->SetQuaternionAndAngularRates(mixQuaternion,ahrsAngularSpeed);
-
     return customOrientation;
 }
 
 void VelCtrl::AltitudeValues(float &z,float &dz) const{
     Vector3Df uav_pos,uav_vel;
-
     uavVrpn->GetPosition(uav_pos);
     uavVrpn->GetSpeed(uav_vel);
     //z and dz must be in uav's frame
     z=-uav_pos.z;
     dz=-uav_vel.z;
 }
-
 AhrsData *VelCtrl::GetReferenceOrientation(void) {
-    Vector3Df u_d, u_d_dot;
-    float yaw_ref;
-    PositionValues(u_d, u_d_dot, yaw_ref);
-    float psi_d = 0, psi_d_dot=0;
-    Quaternion q_d, qd_aux;
-    Vector3Df omega_d, omega_aux;
-    float T;
-    calculate_virtual_control(q_d, omega_d, u_d, u_d_dot, psi_d, psi_d_dot);
-    customReferenceOrientation->SetQuaternionAndAngularRates(q_d,omega_d);
-    // customReferenceOrientation->SetQuaternionAndAngularRates(refAngles.ToQuaternion(),Vector3Df(0,0,0));
+    if (behaviourMode==BehaviourMode_t::Default) {
+        Vector2Df pos_err, vel_err; // in Uav coordinate system
+        float yaw_ref;
+        Euler refAngles;
+
+        PositionValues(pos_err, vel_err, yaw_ref);
+
+        refAngles.yaw=yaw_ref;
+
+        uX->SetValues(pos_err.x, vel_err.x);
+        uX->Update(GetTime());
+        refAngles.pitch=uX->Output();
+
+        uY->SetValues(pos_err.y, vel_err.y);
+        uY->Update(GetTime());
+        refAngles.roll=-uY->Output();
+
+        customReferenceOrientation->SetQuaternionAndAngularRates(refAngles.ToQuaternion(),Vector3Df(0,0,0));
+    } else if (behaviourMode==BehaviourMode_t::Custom) {//Custom flight mode
+        Vector3Df uav_pos,uav_vel; // in VRPN coordinate system
+        uavVrpn->GetPosition(uav_pos);
+        uavVrpn->GetSpeed(uav_vel);
+        uav_pos.z+=(float)zOffset->Value();//offset for safety
+
+        // Custom law control signals
+        Vector3Df u_d, u_dot_d;
+        float psi_d = 0, psi_d_dot=0;
+        Quaternion q_d;
+        Vector3Df omega_d;
+        // Get target position
+        Vector3Df target_pos = {(float)xGoto->Value(), (float)yGoto->Value(), uav_pos.z};
+  
+        // Calculate HL control signals
+        calculate_hlc(u_d, u_dot_d, target_pos, uav_pos, uav_vel, Vector3Df(0,0,0));
+        // Map control to body frame quaternion and angular velocity
+        calculate_virtual_control(q_d, omega_d, u_d, u_dot_d, psi_d, psi_d_dot);
+        customReferenceOrientation->SetQuaternionAndAngularRates(q_d,omega_d);
+    }
     return customReferenceOrientation;
 }
+
+void VelCtrl::PositionValues(Vector2Df &pos_error,Vector2Df &vel_error,float &yaw_ref) {
+    Vector3Df uav_pos,uav_vel; // in VRPN coordinate system
+    Vector2Df uav_2Dpos,uav_2Dvel; // in VRPN coordinate system
+
+    uavVrpn->GetPosition(uav_pos);
+    uavVrpn->GetSpeed(uav_vel);
+
+    uav_pos.To2Dxy(uav_2Dpos);
+    uav_vel.To2Dxy(uav_2Dvel);
+
+    pos_error=uav_2Dpos-posHold;
+    vel_error=uav_2Dvel;
+    yaw_ref=yawHold;
+    //error in uav frame
+    Quaternion currentQuaternion=GetCurrentQuaternion();
+    Euler currentAngles;//in vrpn frame
+    currentQuaternion.ToEuler(currentAngles);
+    pos_error.Rotate(-currentAngles.yaw);
+    vel_error.Rotate(-currentAngles.yaw);
+}
+
 
 float VelCtrl::ComputeCustomThrust(void) {
     // Update output matrix with thrust and attitude commands
@@ -226,39 +265,6 @@ float VelCtrl::ComputeCustomThrust(void) {
 }
 
 
-void VelCtrl::PositionValues(Vector3Df &u_d, Vector3Df &u_dot_d, float &yaw_ref) {
-    Vector2Df pos_error, vel_error;
-    Vector3Df uav_pos,uav_vel; // in VRPN coordinate system
-    Vector2Df uav_2Dpos,uav_2Dvel; // in VRPN coordinate system
-
-    uavVrpn->GetPosition(uav_pos);
-    uavVrpn->GetSpeed(uav_vel);
-
-    uav_pos.z+=(float)zOffset->Value();
-    uav_pos.To2Dxy(uav_2Dpos);
-    uav_vel.To2Dxy(uav_2Dvel);
-
-    if (behaviourMode==BehaviourMode_t::PositionHold) {
-        pos_error=uav_2Dpos-posHold;
-        vel_error=uav_2Dvel;
-        yaw_ref=yawHold;
-    } else { //Circle
-        Vector3Df target_pos = {(float)xGoto->Value(), (float)yGoto->Value(), uav_pos.z};
-        Vector2Df target_2Dpos;
-
-
-        calculate_hlc(u_d, u_dot_d, target_pos, uav_pos, uav_vel, Vector3Df(0,0,0));
-        yaw_ref=atan2(target_pos.y-uav_pos.y,target_pos.x-uav_pos.x);
-    }
-
-    // //error in uav frame
-    // Quaternion currentQuaternion=GetCurrentQuaternion();
-    // Euler currentAngles;//in vrpn frame
-    // currentQuaternion.ToEuler(currentAngles);
-    // pos_error.Rotate(-currentAngles.yaw);
-    // vel_error.Rotate(-currentAngles.yaw);
-}
-
 void VelCtrl::SignalEvent(Event_t event) {
     UavStateMachine::SignalEvent(event);
     switch(event) {
@@ -266,11 +272,11 @@ void VelCtrl::SignalEvent(Event_t event) {
         behaviourMode=BehaviourMode_t::Default;
         vrpnLost=false;
         break;
-    case Event_t::EnteringControlLoop:
-        if ((behaviourMode==BehaviourMode_t::Circle) && (!circle->IsRunning())) {
-            VrpnPositionHold();
-        }
-        break;
+    // case Event_t::EnteringControlLoop:
+    //     if ((behaviourMode==BehaviourMode_t::Custom) && (!circle->IsRunning())) {
+    //         VrpnPositionHold();
+    //     }
+    //     break;
     case Event_t::EnteringFailSafeMode:
         behaviourMode=BehaviourMode_t::Default;
         break;
@@ -278,13 +284,7 @@ void VelCtrl::SignalEvent(Event_t event) {
 }
 
 void VelCtrl::ExtraSecurityCheck(void) {
-    if ((!vrpnLost) && ((behaviourMode==BehaviourMode_t::Circle) || (behaviourMode==BehaviourMode_t::PositionHold))) {
-        if (!targetVrpn->IsTracked(500)) {
-            Thread::Err("VRPN, target lost\n");
-            vrpnLost=true;
-            EnterFailSafeMode();
-            Land();
-        }
+    if ((!vrpnLost) && ((behaviourMode==BehaviourMode_t::Custom) || (behaviourMode==BehaviourMode_t::PositionHold))) {
         if (!uavVrpn->IsTracked(500)) {
             Thread::Err("VRPN, uav lost\n");
             vrpnLost=true;
@@ -324,45 +324,37 @@ void VelCtrl::ExtraCheckJoystick(void) {
 }
 
 void VelCtrl::StartCircle(void) {
-    if( behaviourMode==BehaviourMode_t::Circle) {
-        Thread::Warn("VelCtrl: already in circle mode\n");
+    if( behaviourMode==BehaviourMode_t::Custom) {
+        Thread::Warn("VelCtrl: already in custom mode\n");
         return;
     }
-    // if (!SetThrustMode(ThrustMode_t::Custom)) {
-    //     Thread::Warn("could not StartTransportation error SetThrustMode(OrientationMode_t::Custom)\n");
-    //     return;
-    // }
+    if (!SetThrustMode(ThrustMode_t::Custom)) {
+        Thread::Warn("could not start: failed to set thrust mode\n");
+        return;
+    }
     if (SetOrientationMode(OrientationMode_t::Custom)) {
-        Thread::Info("VelCtrl: start circle\n");
+        Thread::Info("VelCtrl: start custom mode\n");
     } else {
-        Thread::Warn("VelCtrl: could not start circle\n");
+        Thread::Warn("VelCtrl: could not start custom mode\n");
         return;
     }
-    Vector3Df uav_pos,target_pos;
-    Vector2Df uav_2Dpos,target_2Dpos;
-
-    targetVrpn->GetPosition(target_pos);
-    target_pos.To2Dxy(target_2Dpos);
-    circle->SetCenter(target_2Dpos);
-
-    uavVrpn->GetPosition(uav_pos);
-    uav_pos.To2Dxy(uav_2Dpos);
-    circle->StartTraj(uav_2Dpos);
-
-    uX->Reset();
-    uY->Reset();
-    behaviourMode=BehaviourMode_t::Circle;
+    behaviourMode=BehaviourMode_t::Custom;
 }
 
 void VelCtrl::StopCircle(void) {
-    if( behaviourMode!=BehaviourMode_t::Circle) {
-        Thread::Warn("VelCtrl: not in circle mode\n");
+    if( behaviourMode!=BehaviourMode_t::Custom) {
+        Thread::Warn("VelCtrl: not in custom mode\n");
         return;
     }
-    // SetThrustMode(ThrustMode_t::Default);//check if it is necessary
-    circle->FinishTraj();
-    //GetJoystick()->Rumble(0x70);
-    Thread::Info("VelCtrl: finishing circle\n");
+    if (!SetThrustMode(ThrustMode_t::Default)) {
+        Thread::Warn("could not stop: failed to set thrust mode\n");
+        return;
+    }
+    Vector3Df vrpnPosition;
+    uavVrpn->GetPosition(vrpnPosition);
+    vrpnPosition.To2Dxy(posHold);
+    behaviourMode=BehaviourMode_t::Default;
+    Thread::Info("VelCtrl: finishing custom\n");
 }
 
 void VelCtrl::VrpnPositionHold(void) {
@@ -370,9 +362,9 @@ void VelCtrl::VrpnPositionHold(void) {
         Thread::Warn("VelCtrl: already in vrpn position hold mode\n");
         return;
     }
-		Quaternion vrpnQuaternion;
+	Quaternion vrpnQuaternion;
     uavVrpn->GetQuaternion(vrpnQuaternion);
-		yawHold=vrpnQuaternion.ToEuler().yaw;
+	yawHold=vrpnQuaternion.ToEuler().yaw;
 
     Vector3Df vrpnPosition;
     uavVrpn->GetPosition(vrpnPosition);
@@ -399,9 +391,14 @@ void VelCtrl::calculate_virtual_control(Quaternion& q_d, Vector3Df& omega_d,
     uu.Normalize();  // Unit vector in thrust direction
 
     // Derivative of the unit thrust vector
-    uup.x = uip.x / norm - ui.x * u / norm3;
-    uup.y = uip.y / norm - ui.y * u / norm3;
-    uup.z = uip.z / norm - ui.z * u / norm3;
+    if (norm < 0.00001f) {
+        uup = Vector3Df(0.0f, 0.0f, 0.0f);// it is not true need to check
+    } else {
+        uup.x = uip.x / norm - ui.x * u / norm3;
+        uup.y = uip.y / norm - ui.y * u / norm3;
+        uup.z = uip.z / norm - ui.z * u / norm3;
+    }
+    
 
     float u_3 = sqrtf(-2 * uu.z + 2);
 
@@ -418,7 +415,7 @@ void VelCtrl::calculate_virtual_control(Quaternion& q_d, Vector3Df& omega_d,
     refOmega.y = -uup.x * cosf(psi_d) - uup.y * sinf(psi_d) + uup.z * (uu.x * cosf(psi_d) + uu.y * sinf(psi_d)) / (1 - uu.z);
     refOmega.z = psip_d - (-uu.x * uup.y + uu.y * uup.x) / (1 - uu.z);
 
-    customThrustValue = -(float)thrustSpinBox->Value();//-norm;
+    customThrustValue = -norm;
     q_d = refQuaternion;
     omega_d = refOmega;
 }
@@ -437,17 +434,23 @@ void VelCtrl::calculate_hlc(Vector3Df& u, Vector3Df& u_dot,
 
     Vector3Df V = xi_dot;
     Vector3Df V_dot = xi_ddot;
-
-    // Distance and direction calculations
-    float d = dv.GetNorm();
-    Vector3Df R = dv;
-    R.Normalize();
-    float d_dot = dot(dv, dv_dot) / d; 
-    Vector3Df R_dot = (dv_dot * d - dv * d_dot) / (d * d);
     // Define constant vectors
     Vector3Df Tv(0.0f, 0.0f, 1.0f);
     Vector3Df T_dot(0.0f, 0.0f, 0.0f);
-
+    // Distance and direction calculations
+    float d = dv.GetNorm();
+    if (d > 0.00001f) {
+        Vector3Df R = dv;
+        R.Normalize();
+        float d_dot = dot(dv, dv_dot) / d;//can cause division by zero 
+        Vector3Df R_dot = (dv_dot * d - dv * d_dot) / (d * d);
+    } else {
+        Vector3Df R(0.0f, 0.0f, 0.0f);
+        d_dot = 0.0f;
+        Vector3Df R_dot(0.0f, 0.0f, 0.0f);
+    }
+    
+    
     // Membership functions
     float c1 = (float)c1SpinBox->Value();
     float mu_far = tanhf(c1 * d);
@@ -478,12 +481,16 @@ void VelCtrl::calculate_hlc(Vector3Df& u, Vector3Df& u_dot,
                       (Tv * (mu_close * c2_T_dot) + Tv * (mu_close_dot * c2_T) + T_dot * (mu_close * c2_T));
 
     // Control law
-    float kv = (float)kvSpinBox->Value();
+    // float kv = (float)kvSpinBox->Value();
+    float kp_x = (float)kp_xS->Value();
+    float kp_y = (float)kp_yS->Value();
+    float kp_z = (float)kp_zS->Value();
+    Vector3Df kp = Vector3Df(-kp_x, -kp_y, -kp_z);
     float mg = (float)thrustSpinBox->Value();//0.39f;
 
     // Calculate control outputs
-    u = (V - Vd) * (-kv) - Vector3Df(0.0f, 0.0f, mg);
-    // u_dot = (V_dot - Vd_dot) * (-kv);
+    u = ((V - Vd) * kp) - Vector3Df(0.0f, 0.0f, mg);
+    // u_dot = (V_dot - Vd_dot) * kp;
     u_dot = Vector3Df(0.0f, 0.0f, 0.0f);//acceleration is not known
 
     // Update output matrix with control signals
