@@ -439,15 +439,17 @@ void VelCtrl::calculate_hlc(Vector3Df& u, Vector3Df& u_dot,
     Vector3Df T_dot(0.0f, 0.0f, 0.0f);
     // Distance and direction calculations
     float d = dv.GetNorm();
+    Vector3Df R = dv;
+    float d_dot;
+    Vector3Df R_dot;
     if (d > 0.00001f) {
-        Vector3Df R = dv;
         R.Normalize();
-        float d_dot = dot(dv, dv_dot) / d;//can cause division by zero 
-        Vector3Df R_dot = (dv_dot * d - dv * d_dot) / (d * d);
+        d_dot = dot(dv, dv_dot) / d;//can cause division by zero 
+        R_dot = (dv_dot * d - dv * d_dot) / (d * d);
     } else {
-        Vector3Df R(0.0f, 0.0f, 0.0f);
+        R = Vector3Df(0.0f, 0.0f, 0.0f);
         d_dot = 0.0f;
-        Vector3Df R_dot(0.0f, 0.0f, 0.0f);
+        R_dot = Vector3Df(0.0f, 0.0f, 0.0f);
     }
     
     
