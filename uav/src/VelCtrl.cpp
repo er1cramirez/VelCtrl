@@ -1,16 +1,3 @@
-//  created:    2011/05/01
-//  filename:   VelCtrl.cpp
-//
-//  author:     Guillaume Sanahuja
-//              Copyright Heudiasyc UMR UTC/CNRS 7253
-//
-//  version:    $Id: $
-//
-//  purpose:    demo cercle avec optitrack
-//
-//
-/*********************************************************************/
-
 #include "VelCtrl.h"
 #include <TargetController.h>
 #include <Uav.h>
@@ -323,7 +310,7 @@ void VelCtrl::ExtraCheckJoystick(void) {
     }
 }
 
-void VelCtrl::StartCircle(void) {
+void VelCtrl::StartCustom(void) {
     if( behaviourMode==BehaviourMode_t::Custom) {
         Thread::Warn("VelCtrl: already in custom mode\n");
         return;
@@ -341,19 +328,12 @@ void VelCtrl::StartCircle(void) {
     behaviourMode=BehaviourMode_t::Custom;
 }
 
-void VelCtrl::StopCircle(void) {
+void VelCtrl::StopCustom(void) {
     if( behaviourMode!=BehaviourMode_t::Custom) {
         Thread::Warn("VelCtrl: not in custom mode\n");
         return;
     }
-    if (!SetThrustMode(ThrustMode_t::Default)) {
-        Thread::Warn("could not stop: failed to set thrust mode\n");
-        return;
-    }
-    Vector3Df vrpnPosition;
-    uavVrpn->GetPosition(vrpnPosition);
-    vrpnPosition.To2Dxy(posHold);
-    behaviourMode=BehaviourMode_t::Default;
+    EnterFailSafeMode(void);
     Thread::Info("VelCtrl: finishing custom\n");
 }
 
@@ -377,6 +357,11 @@ void VelCtrl::VrpnPositionHold(void) {
     SetOrientationMode(OrientationMode_t::Custom);
     Thread::Info("VelCtrl: holding position\n");
 }
+
+
+
+
+
 
 void VelCtrl::calculate_virtual_control(Quaternion& q_d, Vector3Df& omega_d,
     const Vector3Df& ui, const Vector3Df& uip, float psi_d, float psip_d) 
@@ -423,6 +408,9 @@ void VelCtrl::calculate_virtual_control(Quaternion& q_d, Vector3Df& omega_d,
 float VelCtrl::dot(const Vector3Df& v1, const Vector3Df& v2) {
     return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 }
+
+
+
 
 void VelCtrl::calculate_hlc(Vector3Df& u, Vector3Df& u_dot,
     const Vector3Df& xi_c, const Vector3Df& xi, 

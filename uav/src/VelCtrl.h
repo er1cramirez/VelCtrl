@@ -49,29 +49,38 @@ class VelCtrl : public flair::meta::UavStateMachine {
             Default,
             PositionHold,
             Custom,
+            CustomPositionHold,
+            ThrustTune
         };
 
         BehaviourMode_t behaviourMode;
         bool vrpnLost;
 
-        void VrpnPositionHold(void);//flight mode
-        void StartCircle(void);
-        void StopCircle(void);
+        // Flair methods
         void ExtraSecurityCheck(void) override;
         void ExtraCheckPushButton(void) override;
         void ExtraCheckJoystick(void) override;
         const flair::core::AhrsData *GetOrientation(void) const override;
-        float ComputeCustomThrust(void) override;
+        void SignalEvent(Event_t event) override;
+        void VrpnPositionHold(void);
         void AltitudeValues(float &z,float &dz) const override;
+        void PositionValues(flair::core::Vector2Df &pos_error,flair::core::Vector2Df &vel_error,float &yaw_ref);
+        flair::core::AhrsData *GetReferenceOrientation(void) override;
+
+        // Application methods
+        void StartCustom(void);
+        void StopCustom(void);
+        float ComputeCustomThrust(void) override;
+        
         void calculate_virtual_control(flair::core::Quaternion& q_d, flair::core::Vector3Df& omega_d,
             const flair::core::Vector3Df& ui, const flair::core::Vector3Df& uip, float psi_d, float psip_d);
         void calculate_hlc(flair::core::Vector3Df& u, flair::core::Vector3Df& u_dot,
                 const flair::core::Vector3Df& xi_c, const flair::core::Vector3Df& xi, 
                 const flair::core::Vector3Df& xi_dot, const flair::core::Vector3Df& xi_ddot);
-        void PositionValues(flair::core::Vector2Df &pos_error,flair::core::Vector2Df &vel_error,float &yaw_ref);
+        
         float dot(const flair::core::Vector3Df& v1, const flair::core::Vector3Df& v2);
-        flair::core::AhrsData *GetReferenceOrientation(void) override;
-        void SignalEvent(Event_t event) override;
+        
+        
 
         flair::filter::Pid *uX, *uY;
 
