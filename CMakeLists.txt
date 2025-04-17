@@ -1,5 +1,6 @@
 PROJECT(VelCtrl)
 cmake_minimum_required(VERSION 2.8)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include($ENV{FLAIR_ROOT}/flair-src/cmake-modules/GlobalCmakeFlair.cmake)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/simulator)
