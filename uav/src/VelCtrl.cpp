@@ -23,6 +23,8 @@
 #include <DataPlot1D.h>
 #include <DataPlot2D.h>
 
+#include "velocityField.h"
+#include "virtualCtrl.h"
 
 
 //namespaces, add others if necessary (filter, sensor, actuator)

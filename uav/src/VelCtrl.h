@@ -22,7 +22,9 @@ namespace framework {
         class MetaVrpnObject;
     }
     namespace core {
-        class Matrix;
+        // Vector3Df;
+        // Quaternion;
+        // class Matrix;
     }
 }
 
@@ -72,8 +74,6 @@ class VelCtrl : public flair::meta::UavStateMachine {
         flair::meta::MetaVrpnObject *uavVrpn;
         flair::core::AhrsData *customReferenceOrientation;
         flair::core::Matrix *customLogs;
-        // flair::core::Matrix *output;
-        // flair::core::Matrix *customLogs;
         flair::core::Matrix *control;
         flair::core::Matrix *errors;
         flair::core::Matrix *ref_tracking;
