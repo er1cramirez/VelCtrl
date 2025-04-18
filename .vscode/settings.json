@@ -1,4 +1,10 @@
 {
+    "cmake.configureEnvironment": {
+        "FLAIR_ROOT": "${env:FLAIR_ROOT}"
+    },
+    "cmake.environment": {
+        "FLAIR_ROOT": "${env:FLAIR_ROOT}"
+    },
     "files.associations": {
         "string_view": "cpp",
         "cctype": "cpp",

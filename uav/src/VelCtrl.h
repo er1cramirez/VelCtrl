@@ -1,37 +1,25 @@
-//  created:    2011/05/01
-//  filename:   VelCtrl.h
-//
-//  author:     Guillaume Sanahuja
-//              Copyright Heudiasyc UMR UTC/CNRS 7253
-//
-//  version:    $Id: $
-//
-//  purpose:    demo cercle avec optitrack
-//
-//
-/*********************************************************************/
 
-#ifndef CIRCLEFOLLOWER_H
-#define CIRCLEFOLLOWER_H
+#ifndef VELCTRL_H
+#define VELCTRL_H
 
 #include <UavStateMachine.h>
+#include "velocityField.h"
+#include "virtualCtrl.h"
 
-namespace flair {
+namespace framework {
     namespace gui {
         class PushButton;
-        class DoubleSpinBox;
-        class Tab;
-        class TabWidget;
         class GroupBox;
-    }
-    namespace filter {
-        class TrajectoryGenerator2DCircle;
-    }
-    namespace meta {
-        class MetaVrpnObject;
+        class ComboBox;
+        class CheckBox;
+        class Vector3DSpinBox;
+        class DoubleSpinBox;
     }
     namespace sensor {
         class TargetController;
+    }
+    namespace meta {
+        class MetaVrpnObject;
     }
     namespace core {
         class Matrix;
@@ -44,67 +32,61 @@ class VelCtrl : public flair::meta::UavStateMachine {
         ~VelCtrl();
 
     private:
-
-	enum class BehaviourMode_t {
+        enum class BehaviourMode_t {
             Default,
-            PositionHold,
-            Custom,
+            CustomControl,
+            CustomCircle,
             CustomPositionHold,
             ThrustTune
         };
 
         BehaviourMode_t behaviourMode;
-        bool vrpnLost;
-
-        // Flair methods
-        void ExtraSecurityCheck(void) override;
+        /*Safety functions
+        * These functions are called by the UavStateMachine::Run (main loop)
+        * when the corresponding event is triggered
+        */  
         void ExtraCheckPushButton(void) override;
         void ExtraCheckJoystick(void) override;
-        const flair::core::AhrsData *GetOrientation(void) const override;
         void SignalEvent(Event_t event) override;
-        void VrpnPositionHold(void);
-        void AltitudeValues(float &z,float &dz) const override;
-        void PositionValues(flair::core::Vector2Df &pos_error,flair::core::Vector2Df &vel_error,float &yaw_ref);
+
+
+        
+        /*
+        * Custom control at orientation level
+        */
         flair::core::AhrsData *GetReferenceOrientation(void) override;
-
-        // Application methods
-        void StartCustom(void);
-        void StopCustom(void);
-        float ComputeCustomThrust(void) override;
+        void AltitudeValues(float &z,float &dz) const override;// For avoid z up when fail safe
+        void VrpnPositionHold(void);
+        void GetCurrentUavState(flair::core::Vector3Df & pos, flair::core::Vector3Df &vel, flair::core::Quaternion &quat, flair::core::Vector3Df &angVel);
+        void computeVelCtrl(flair::core::Quaternion &refOrientation,
+                            flair::core::Vector3Df &refAngularRates);
         
-        void calculate_virtual_control(flair::core::Quaternion& q_d, flair::core::Vector3Df& omega_d,
-            const flair::core::Vector3Df& ui, const flair::core::Vector3Df& uip, float psi_d, float psip_d);
-        void calculate_hlc(flair::core::Vector3Df& u, flair::core::Vector3Df& u_dot,
-                const flair::core::Vector3Df& xi_c, const flair::core::Vector3Df& xi, 
-                const flair::core::Vector3Df& xi_dot, const flair::core::Vector3Df& xi_ddot);
-        
-        float dot(const flair::core::Vector3Df& v1, const flair::core::Vector3Df& v2);
-        
-        
+        void StartCustomControl(void);
+        void StopCustomControl(void);
+        void SetupGUI(void);
+        void SetupData(void);
 
-        flair::filter::Pid *uX, *uY;
+        VelocityField *velocityField;
+        VirtualCtrl *virtualCtrl;
 
-        flair::core::Vector2Df posHold;
-        flair::core::Matrix *output;
-        flair::core::Matrix *customLogs;
-        flair::core::Matrix *velocityRef;
-        flair::gui::DoubleSpinBox *thrustSpinBox;
-        flair::gui::DoubleSpinBox *kp_xS;
-        flair::gui::DoubleSpinBox *kp_yS;
-        flair::gui::DoubleSpinBox *kp_zS;
-        flair::gui::DoubleSpinBox *crSpinBox;
-        flair::gui::DoubleSpinBox *ctSpinBox;
-        flair::gui::DoubleSpinBox *c1SpinBox;
-        flair::gui::DoubleSpinBox *xGoto;
-        flair::gui::DoubleSpinBox *yGoto;
-        flair::gui::DoubleSpinBox *zOffset;
-        float yawHold;
-
-        flair::gui::PushButton *startCircle,*stopCircle,*positionHold;
         flair::meta::MetaVrpnObject *uavVrpn;
-        flair::filter::TrajectoryGenerator2DCircle *circle;
-        flair::core::AhrsData *customReferenceOrientation,*customOrientation;
-        float customThrustValue; // Store the thrust value calculated in calculate_virtual_control
+        flair::core::AhrsData *customReferenceOrientation;
+        flair::core::Matrix *customLogs;
+        // flair::core::Matrix *output;
+        // flair::core::Matrix *customLogs;
+        flair::core::Matrix *control;
+        flair::core::Matrix *errors;
+        flair::core::Matrix *ref_tracking;
+
+        // Control performance plots
+        flair::gui::DataPlot1D *u_plot, *u_dot_plot;
+        flair::gui::DataPlot1D *pos_err_plot, *vel_err_plot, *pos_track_plot, *vel_track_plot; 
+
+        // UI elements
+        flair::gui::PushButton *start_CustomControl,*stop_CustomControl;
+        flair::gui::ComboBox *task_selection;
+        flair::gui::Vector3DSpinBox *desired_position;
+        flair::gui::DoubleSpinBox *crSpinBox, *ctSpinBox, *b_0SpinBox, *b_maxSpinBox, *k_bSpinBox, *gOfsetS, *kp_xS, *kp_yS, *kp_zS;
 };
 
-#endif // CIRCLEFOLLOWER_H
+#endif // VELCTRL_H
