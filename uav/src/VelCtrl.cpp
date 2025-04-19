@@ -158,6 +158,7 @@ void VelCtrl::computeVelCtrl(Quaternion &refOrientation, Vector3Df &refOmega) {
     // Compute the reference thrust, quaternion and angular velocity
     float refThrust;
     virtualCtrl->process(refOrientation, refOmega, refThrust, u, u_dot);
+    UpdateData();
     // Thread::Info("Reference orientation: %f %f %f %f\n", refOrientation.q0, refOrientation.q1, refOrientation.q2, refOrientation.q3);
 }
     
@@ -324,12 +325,12 @@ void VelCtrl::SetupData(void) {
     u_dot_plot->AddCurve(controlOutput->Element(4, 0), 255, 0, 0, "u_dot_y");
     u_dot_plot->AddCurve(controlOutput->Element(5, 0), 0, 255, 0, "u_dot_z");
     // Position error plots
-    pos_err_plot->AddCurve(controlOutput->Element(0, 0), 0, 0, 255, "x_pos_err");
-    pos_err_plot->AddCurve(controlOutput->Element(1, 0), 255, 0, 0, "y_pos_err");
-    pos_err_plot->AddCurve(controlOutput->Element(2, 0), 0, 255, 0, "radial_err");
-    vel_err_plot->AddCurve(controlOutput->Element(3, 0), 0, 0, 255, "x_vel_err");
-    vel_err_plot->AddCurve(controlOutput->Element(4, 0), 255, 0, 0, "y_vel_err");
-    vel_err_plot->AddCurve(controlOutput->Element(5, 0), 0, 255, 0, "z_vel_err");
+    pos_err_plot->AddCurve(errors->Element(0, 0), 0, 82, 204, "x_pos_err");
+    pos_err_plot->AddCurve(errors->Element(1, 0), 51, 153, 255, "y_pos_err");
+    pos_err_plot->AddCurve(errors->Element(2, 0), 204, 0, 0, "radial_err");
+    vel_err_plot->AddCurve(errors->Element(3, 0), 0, 82, 204, "x_vel_err");
+    vel_err_plot->AddCurve(errors->Element(4, 0), 51, 153, 255, "y_vel_err");
+    vel_err_plot->AddCurve(errors->Element(5, 0), 204, 0, 0, "z_vel_err");
     // Position tracking plots
     pos_track_plot->AddCurve(ref_tracking->Element(0, 0), 0, 82, 204, "x_ref");
     pos_track_plot->AddCurve(ref_tracking->Element(1, 0), 51, 153, 255, "x");
@@ -361,6 +362,7 @@ void VelCtrl::UpdateData(void) {
     controlOutput->SetValueNoMutex(4, 0, u_dot.y);
     controlOutput->SetValueNoMutex(5, 0, u_dot.z);
     controlOutput->ReleaseMutex();
+    controlOutput->SetDataTime(GetTime());
     // Update the current state matrix
     desiredPosition = desired_position->Value();
     ref_tracking->GetMutex();
@@ -377,6 +379,7 @@ void VelCtrl::UpdateData(void) {
     ref_tracking->SetValueNoMutex(10, 0, desiredVelocity.z);
     ref_tracking->SetValueNoMutex(11, 0, vel.z);
     ref_tracking->ReleaseMutex();
+    ref_tracking->SetDataTime(GetTime());
     // Update the error matrix
     errors->GetMutex();
     errors->SetValueNoMutex(0, 0, pos.x - desiredPosition.x);
@@ -386,5 +389,5 @@ void VelCtrl::UpdateData(void) {
     errors->SetValueNoMutex(4, 0, vel.y - desiredVelocity.y);
     errors->SetValueNoMutex(5, 0, vel.z - desiredVelocity.z);
     errors->ReleaseMutex();
-
+    errors->SetDataTime(GetTime());
 }
