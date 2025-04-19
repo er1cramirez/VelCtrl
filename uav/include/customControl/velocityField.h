@@ -49,15 +49,12 @@ class VelocityField {
             float height = fabs(currentPosition.z);// Get the absolute height
             // Add the desired height as an offset
             height += fabs(targetPosition.z);
-            float b = (b_0 + b_max * expf(-k_b * height));
+            float b = b_0;//(b_0 + b_max * expf(-k_b * height));
 
             // Compute membership functions
     
             float mu_far = tanhf(b * distance);
             float mu_close = 1.0f / coshf(b * distance); // sech(x) = 1/cosh(x)
-
-
-
             // Compute the desired velocity using the velocity field
             desiredVelocity = k_r * (mu_far * _R) + k_t * (mu_close * _T);
         }

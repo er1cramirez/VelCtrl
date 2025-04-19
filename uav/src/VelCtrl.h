@@ -6,7 +6,7 @@
 #include "velocityField.h"
 #include "virtualCtrl.h"
 
-namespace framework {
+namespace flair {
     namespace gui {
         class PushButton;
         class GroupBox;
@@ -14,6 +14,7 @@ namespace framework {
         class CheckBox;
         class Vector3DSpinBox;
         class DoubleSpinBox;
+        class DataPlot1D;
     }
     namespace sensor {
         class TargetController;
@@ -24,7 +25,7 @@ namespace framework {
     namespace core {
         // Vector3Df;
         // Quaternion;
-        // class Matrix;
+        class Matrix;
     }
 }
 
@@ -67,6 +68,7 @@ class VelCtrl : public flair::meta::UavStateMachine {
         void StopCustomControl(void);
         void SetupGUI(void);
         void SetupData(void);
+        void UpdateData(void);
 
         VelocityField *velocityField;
         VirtualCtrl *virtualCtrl;
@@ -74,7 +76,7 @@ class VelCtrl : public flair::meta::UavStateMachine {
         flair::meta::MetaVrpnObject *uavVrpn;
         flair::core::AhrsData *customReferenceOrientation;
         flair::core::Matrix *customLogs;
-        flair::core::Matrix *control;
+        flair::core::Matrix *controlOutput;
         flair::core::Matrix *errors;
         flair::core::Matrix *ref_tracking;
 
@@ -87,6 +89,17 @@ class VelCtrl : public flair::meta::UavStateMachine {
         flair::gui::ComboBox *task_selection;
         flair::gui::Vector3DSpinBox *desired_position;
         flair::gui::DoubleSpinBox *crSpinBox, *ctSpinBox, *b_0SpinBox, *b_maxSpinBox, *k_bSpinBox, *gOfsetS, *kp_xS, *kp_yS, *kp_zS;
+
+        // State variables
+        flair::core::Vector3Df *desiredVelocity;
+        flair::core::Vector3Df *desiredPosition;
+        flair::core::Vector3Df *uav_pos, *uav_vel;
+        flair::core::Quaternion *currentQuaternion;
+        flair::core::Vector3Df *currentAngularRates;
+        flair::core::Vector3Df *refOrientation;
+        flair::core::Vector3Df *refOmega;
+        flair::core::Vector3Df *u;
+        flair::core::Vector3Df *u_dot;
 };
 
 #endif // VELCTRL_H

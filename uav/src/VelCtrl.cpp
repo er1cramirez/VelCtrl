@@ -1,18 +1,25 @@
 #include "VelCtrl.h"
 // Flair includes
-#include <MetaDualShock3.h>
-#include <FrameworkManager.h>
-#include <AhrsData.h>
-#include <Ahrs.h>
+#include <TargetController.h>
 #include <Uav.h>
+#include <FrameworkManager.h>
 #include <VrpnClient.h>
 #include <MetaVrpnObject.h>
+#include <MetaDualShock3.h>
+#include <AhrsData.h>
+#include <Ahrs.h>
 #include <Matrix.h>
+#include <cmath>
+#include <Pid.h>
+// #include <PidThrust.h>
 
 // GUI elements
+#include <Label.h>
 #include <Tab.h>
 #include <TabWidget.h>
 #include <GridLayout.h>
+#include <LayoutPosition.h>
+#include <Layout.h>
 #include <PushButton.h>
 #include <DoubleSpinBox.h>
 #include <GroupBox.h>
@@ -23,8 +30,8 @@
 #include <DataPlot1D.h>
 #include <DataPlot2D.h>
 
-#include "velocityField.h"
-#include "virtualCtrl.h"
+// #include "velocityField.h"
+// #include "virtualCtrl.h"
 
 
 //namespaces, add others if necessary (filter, sensor, actuator)
@@ -71,6 +78,7 @@ AhrsData *VelCtrl::GetReferenceOrientation(void) {
     Vector3Df refAngularRates;
     if (behaviourMode==BehaviourMode_t::CustomControl) {
         computeVelCtrl(refQuaternion, refAngularRates);
+        // Thread::Info("Calculating HLC");
         customReferenceOrientation->SetQuaternionAndAngularRates(refQuaternion,refAngularRates);
     }else if (behaviourMode==BehaviourMode_t::CustomCircle) {
         EnterFailSafeMode();
@@ -111,12 +119,15 @@ void VelCtrl::GetCurrentUavState(Vector3Df &pos, Vector3Df &vel, Quaternion &qua
 void VelCtrl::computeVelCtrl(Quaternion &refOrientation, Vector3Df &refOmega) {
     // Current state
     Vector3Df pos, vel, angVel;
+    
     Quaternion currentOrientation;
     GetCurrentUavState(pos, vel, currentOrientation, angVel);
+    // Print the position for debugging
+    // Thread::Info("Position: %f %f %f\n", pos.x, pos.y, pos.z);
     // Calculate desired velocity based on the velocity field
     Vector3Df desiredVelocity;
     Vector3Df targetPosition = desired_position->Value();
-    
+    // Thread::Info("Target position: %f %f %f\n", targetPosition.x, targetPosition.y, targetPosition.z);
     // Configure velocity field parameters from the UI
     velocityField->setParameters(
         crSpinBox->Value(),
@@ -127,6 +138,7 @@ void VelCtrl::computeVelCtrl(Quaternion &refOrientation, Vector3Df &refOmega) {
     );
     // Compute the desired velocity using the velocity field
     velocityField->process(desiredVelocity, pos, targetPosition);
+    // Thread::Info("Desired velocity: %f %f %f\n", desiredVelocity.x, desiredVelocity.y, desiredVelocity.z);
 
     /*
         * Simple control Law for the desired velocity
@@ -137,6 +149,8 @@ void VelCtrl::computeVelCtrl(Quaternion &refOrientation, Vector3Df &refOmega) {
     u.x = kp_xS->Value() * (desiredVelocity.x - vel.x);
     u.y = kp_yS->Value() * (desiredVelocity.y - vel.y);
     u.z = kp_zS->Value() * (desiredVelocity.z - vel.z) + fabs(gOfsetS->Value());
+
+    // Thread::Info("Control output: %f %f %f\n", u.x, u.y, u.z);
     u.Saturate(2.0f);
     u_dot.x = 0.0f;
     u_dot.y = 0.0f;
@@ -144,8 +158,7 @@ void VelCtrl::computeVelCtrl(Quaternion &refOrientation, Vector3Df &refOmega) {
     // Compute the reference thrust, quaternion and angular velocity
     float refThrust;
     virtualCtrl->process(refOrientation, refOmega, refThrust, u, u_dot);
-
-
+    // Thread::Info("Reference orientation: %f %f %f %f\n", refOrientation.q0, refOrientation.q1, refOrientation.q2, refOrientation.q3);
 }
     
 
@@ -230,7 +243,7 @@ void VelCtrl::SetupGUI(void) {
    task_selection->AddItem("Hovering at zero");
    task_selection->AddItem("Static target task");
    task_selection->AddItem("Circle target tracking");
-   desired_position = new Vector3DSpinBox(task_selection_box->NewRow(), "Desired position", -3, 3, 0.1, 3);
+   desired_position = new Vector3DSpinBox(task_selection_box->NewRow(), "Desired position", -5, 5, 0.1, 3);
 
    // Create tabs for UI organization
    Tab *lawTab = new Tab(getFrameworkManager()->GetTabWidget(), "custom_laws");
@@ -247,14 +260,14 @@ void VelCtrl::SetupGUI(void) {
    vel_track_plot = new DataPlot1D(performanceTab->NewRow(), "Velocity tracking", -2, 2);
 
    GroupBox *vf_groupbox = new GroupBox(setupTab->NewRow(), "Vector Field Parameters");
-   crSpinBox = new DoubleSpinBox(vf_groupbox->NewRow(), "cr", " ", 0, 3, 0.01, 3,0.12);
-   ctSpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "ct", " ", 0, 3, 0.01, 3,0.11);
-   b_0SpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "b_0", " ", 0, 3, 0.01, 2,1.15);
-   b_maxSpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "b_max", " ", 0, 3, 0.01, 2,1.15);
-   k_bSpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "k_b", " ", 0, 3, 0.01, 2,1.15);
+   crSpinBox = new DoubleSpinBox(vf_groupbox->NewRow(), "cr", " ", 0, 3, 0.01, 3,0.5);
+   ctSpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "ct", " ", 0, 3, 0.01, 3,0.5);
+   b_0SpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "b_0", " ", 0, 3, 0.01, 2,1.5);
+   b_maxSpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "b_max", " ", 0, 6, 0.1, 2,3.0);
+   k_bSpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "k_b", " ", 0, 3, 0.01, 2,0.15);
 
    GroupBox *ctrl_groupbox = new GroupBox(setupTab->NewRow(), "Control Law");
-   gOfsetS = new DoubleSpinBox(ctrl_groupbox->At(0,0), "Thrust", " N", -10, 10, 0.0001, 4,0.398);
+   gOfsetS = new DoubleSpinBox(ctrl_groupbox->At(0,0), "Thrust g ofset", " N", 0, 1, 0.001, 4,0.398);
    kp_xS = new DoubleSpinBox(ctrl_groupbox->NewRow(), "kp_x", " ", 0, 3, 0.01, 3,0.11);
    kp_yS = new DoubleSpinBox(ctrl_groupbox->LastRowLastCol(), "kp_y", " ", 0, 3, 0.01, 3,0.11);
    kp_zS = new DoubleSpinBox(ctrl_groupbox->LastRowLastCol(), "kp_z", " ", 0, 3, 0.01, 3,0.11);
@@ -270,8 +283,8 @@ void VelCtrl::SetupData(void) {
     desc->SetElementName(3, 0, "u_dot_x");    // control derivative x
     desc->SetElementName(4, 0, "u_dot_y");    // control derivative y
     desc->SetElementName(5, 0, "u_dot_z");    // control derivative z
-    control = new Matrix(this, desc, floatType, "contol_output");
-    AddDataToControlLawLog(control);
+    controlOutput = new Matrix(this, desc, floatType, "contol_output");
+    AddDataToControlLawLog(controlOutput);
     delete desc;
 
     desc = new MatrixDescriptor(8, 1);
@@ -304,19 +317,19 @@ void VelCtrl::SetupData(void) {
 
 
     // Control output plots
-    u_plot->AddCurve(control->Element(0, 0), 0, 0, 255, "u_x");
-    u_plot->AddCurve(control->Element(1, 0), 255, 0, 0, "u_y");
-    u_plot->AddCurve(control->Element(2, 0), 0, 255, 0, "u_z");
-    u_dot_plot->AddCurve(control->Element(3, 0), 0, 0, 255, "u_dot_x");
-    u_dot_plot->AddCurve(control->Element(4, 0), 255, 0, 0, "u_dot_y");
-    u_dot_plot->AddCurve(control->Element(5, 0), 0, 255, 0, "u_dot_z");
+    u_plot->AddCurve(controlOutput->Element(0, 0), 0, 0, 255, "u_x");
+    u_plot->AddCurve(controlOutput->Element(1, 0), 255, 0, 0, "u_y");
+    u_plot->AddCurve(controlOutput->Element(2, 0), 0, 255, 0, "u_z");
+    u_dot_plot->AddCurve(controlOutput->Element(3, 0), 0, 0, 255, "u_dot_x");
+    u_dot_plot->AddCurve(controlOutput->Element(4, 0), 255, 0, 0, "u_dot_y");
+    u_dot_plot->AddCurve(controlOutput->Element(5, 0), 0, 255, 0, "u_dot_z");
     // Position error plots
-    pos_err_plot->AddCurve(errors->Element(0, 0), 0, 0, 255, "x_pos_err");
-    pos_err_plot->AddCurve(errors->Element(1, 0), 255, 0, 0, "y_pos_err");
-    pos_err_plot->AddCurve(errors->Element(2, 0), 0, 255, 0, "radial_err");
-    vel_err_plot->AddCurve(errors->Element(3, 0), 0, 0, 255, "x_vel_err");
-    vel_err_plot->AddCurve(errors->Element(4, 0), 255, 0, 0, "y_vel_err");
-    vel_err_plot->AddCurve(errors->Element(5, 0), 0, 255, 0, "z_vel_err");
+    pos_err_plot->AddCurve(controlOutput->Element(0, 0), 0, 0, 255, "x_pos_err");
+    pos_err_plot->AddCurve(controlOutput->Element(1, 0), 255, 0, 0, "y_pos_err");
+    pos_err_plot->AddCurve(controlOutput->Element(2, 0), 0, 255, 0, "radial_err");
+    vel_err_plot->AddCurve(controlOutput->Element(3, 0), 0, 0, 255, "x_vel_err");
+    vel_err_plot->AddCurve(controlOutput->Element(4, 0), 255, 0, 0, "y_vel_err");
+    vel_err_plot->AddCurve(controlOutput->Element(5, 0), 0, 255, 0, "z_vel_err");
     // Position tracking plots
     pos_track_plot->AddCurve(ref_tracking->Element(0, 0), 0, 82, 204, "x_ref");
     pos_track_plot->AddCurve(ref_tracking->Element(1, 0), 51, 153, 255, "x");
@@ -331,4 +344,10 @@ void VelCtrl::SetupData(void) {
     vel_track_plot->AddCurve(ref_tracking->Element(9, 0), 255, 102, 0, "Vy");
     vel_track_plot->AddCurve(ref_tracking->Element(10, 0), 0, 128, 0, "Vz_ref");
     vel_track_plot->AddCurve(ref_tracking->Element(11, 0), 76, 187, 23, "Vz");
+}
+
+void VelCtrl::UpdateData(void) {
+    // Update the control output matrix
+    controlOutput->Element(0, 0)->
+
 }
