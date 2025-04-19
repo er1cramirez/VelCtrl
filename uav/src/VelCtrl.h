@@ -91,15 +91,15 @@ class VelCtrl : public flair::meta::UavStateMachine {
         flair::gui::DoubleSpinBox *crSpinBox, *ctSpinBox, *b_0SpinBox, *b_maxSpinBox, *k_bSpinBox, *gOfsetS, *kp_xS, *kp_yS, *kp_zS;
 
         // State variables
-        flair::core::Vector3Df *desiredVelocity;
-        flair::core::Vector3Df *desiredPosition;
-        flair::core::Vector3Df *uav_pos, *uav_vel;
-        flair::core::Quaternion *currentQuaternion;
-        flair::core::Vector3Df *currentAngularRates;
-        flair::core::Vector3Df *refOrientation;
-        flair::core::Vector3Df *refOmega;
-        flair::core::Vector3Df *u;
-        flair::core::Vector3Df *u_dot;
+        flair::core::Vector3Df desiredVelocity;
+        flair::core::Vector3Df desiredPosition;
+        flair::core::Vector3Df pos, vel;
+        flair::core::Quaternion currentQuaternion;
+        flair::core::Vector3Df currentAngularRates;
+        flair::core::Vector3Df refOrientation;
+        flair::core::Vector3Df refOmega;
+        flair::core::Vector3Df u;
+        flair::core::Vector3Df u_dot;
 };
 
 #endif // VELCTRL_H

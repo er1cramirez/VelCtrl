@@ -118,14 +118,14 @@ void VelCtrl::GetCurrentUavState(Vector3Df &pos, Vector3Df &vel, Quaternion &qua
 */
 void VelCtrl::computeVelCtrl(Quaternion &refOrientation, Vector3Df &refOmega) {
     // Current state
-    Vector3Df pos, vel, angVel;
+    Vector3Df angVel;
     
     Quaternion currentOrientation;
     GetCurrentUavState(pos, vel, currentOrientation, angVel);
     // Print the position for debugging
     // Thread::Info("Position: %f %f %f\n", pos.x, pos.y, pos.z);
     // Calculate desired velocity based on the velocity field
-    Vector3Df desiredVelocity;
+    // Vector3Df desiredVelocity;
     Vector3Df targetPosition = desired_position->Value();
     // Thread::Info("Target position: %f %f %f\n", targetPosition.x, targetPosition.y, targetPosition.z);
     // Configure velocity field parameters from the UI
@@ -145,7 +145,7 @@ void VelCtrl::computeVelCtrl(Quaternion &refOrientation, Vector3Df &refOmega) {
         * u = kp*(desiredVelocity - vel) + gOfsetS->Value()
         * u_dot = (0,0,0)
     */
-    Vector3Df u, u_dot;
+    // Vector3Df u, u_dot;
     u.x = kp_xS->Value() * (desiredVelocity.x - vel.x);
     u.y = kp_yS->Value() * (desiredVelocity.y - vel.y);
     u.z = kp_zS->Value() * (desiredVelocity.z - vel.z) + fabs(gOfsetS->Value());
@@ -347,7 +347,44 @@ void VelCtrl::SetupData(void) {
 }
 
 void VelCtrl::UpdateData(void) {
+    // output->GetMutex();
+    // output->SetValueNoMutex(1, 0, u.x);
+    // output->SetValueNoMutex(2, 0, u.y);
+    // output->SetValueNoMutex(3, 0, u.z);
+    // output->ReleaseMutex();
     // Update the control output matrix
-    controlOutput->Element(0, 0)->
+    controlOutput->GetMutex();
+    controlOutput->SetValueNoMutex(0, 0, u.x);
+    controlOutput->SetValueNoMutex(1, 0, u.y);
+    controlOutput->SetValueNoMutex(2, 0, u.z);
+    controlOutput->SetValueNoMutex(3, 0, u_dot.x);
+    controlOutput->SetValueNoMutex(4, 0, u_dot.y);
+    controlOutput->SetValueNoMutex(5, 0, u_dot.z);
+    controlOutput->ReleaseMutex();
+    // Update the current state matrix
+    desiredPosition = desired_position->Value();
+    ref_tracking->GetMutex();
+    ref_tracking->SetValueNoMutex(0, 0, desiredPosition.x);
+    ref_tracking->SetValueNoMutex(1, 0, pos.x);
+    ref_tracking->SetValueNoMutex(2, 0, desiredPosition.y);
+    ref_tracking->SetValueNoMutex(3, 0, pos.y);
+    ref_tracking->SetValueNoMutex(4, 0, desiredPosition.z);
+    ref_tracking->SetValueNoMutex(5, 0, pos.z);
+    ref_tracking->SetValueNoMutex(6, 0, desiredVelocity.x);
+    ref_tracking->SetValueNoMutex(7, 0, vel.x);
+    ref_tracking->SetValueNoMutex(8, 0, desiredVelocity.y);
+    ref_tracking->SetValueNoMutex(9, 0, vel.y);
+    ref_tracking->SetValueNoMutex(10, 0, desiredVelocity.z);
+    ref_tracking->SetValueNoMutex(11, 0, vel.z);
+    ref_tracking->ReleaseMutex();
+    // Update the error matrix
+    errors->GetMutex();
+    errors->SetValueNoMutex(0, 0, pos.x - desiredPosition.x);
+    errors->SetValueNoMutex(1, 0, pos.y - desiredPosition.y);
+    errors->SetValueNoMutex(2, 0, sqrt(pow(pos.x - desiredPosition.x, 2) + pow(pos.y - desiredPosition.y, 2)));
+    errors->SetValueNoMutex(3, 0, vel.x - desiredVelocity.x);
+    errors->SetValueNoMutex(4, 0, vel.y - desiredVelocity.y);
+    errors->SetValueNoMutex(5, 0, vel.z - desiredVelocity.z);
+    errors->ReleaseMutex();
 
 }
