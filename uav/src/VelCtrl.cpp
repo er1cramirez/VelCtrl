@@ -79,7 +79,7 @@ AhrsData *VelCtrl::GetReferenceOrientation(void) {
     if (behaviourMode==BehaviourMode_t::CustomControl) {
         computeVelCtrl(refQuaternion, refAngularRates);
         // Thread::Info("Calculating HLC");
-        customReferenceOrientation->SetQuaternionAndAngularRates(refQuaternion,refAngularRates);
+        customReferenceOrientation->SetQuaternionAndAngularRates(refQuaternion,Vector3Df(0.0f,0.0f,0.0f));
     }else if (behaviourMode==BehaviourMode_t::CustomCircle) {
         EnterFailSafeMode();
     }else {
@@ -262,17 +262,17 @@ void VelCtrl::SetupGUI(void) {
    vel_track_plot = new DataPlot1D(performanceTab->NewRow(), "Velocity tracking", -2, 2);
 
    GroupBox *vf_groupbox = new GroupBox(setupTab->NewRow(), "Vector Field Parameters");
-   crSpinBox = new DoubleSpinBox(vf_groupbox->NewRow(), "cr", " ", 0, 3, 0.01, 3,0.5);
-   ctSpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "ct", " ", 0, 3, 0.01, 3,0.5);
-   b_0SpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "b_0", " ", 0, 3, 0.01, 2,1.5);
+   crSpinBox = new DoubleSpinBox(vf_groupbox->NewRow(), "cr", " ", 0, 3, 0.01, 3,0.1);
+   ctSpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "ct", " ", 0, 3, 0.01, 3,0.1);
+   b_0SpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "b_0", " ", 0, 3, 0.01, 2,1.15);
    b_maxSpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "b_max", " ", 0, 6, 0.1, 2,3.0);
    k_bSpinBox = new DoubleSpinBox(vf_groupbox->LastRowLastCol(), "k_b", " ", 0, 3, 0.01, 2,0.15);
 
    GroupBox *ctrl_groupbox = new GroupBox(setupTab->NewRow(), "Control Law");
    gOfsetS = new DoubleSpinBox(ctrl_groupbox->At(0,0), "Thrust g ofset", " N", 0, 1, 0.001, 4,0.398);
    kp_xS = new DoubleSpinBox(ctrl_groupbox->NewRow(), "kp_x", " ", 0, 3, 0.01, 3,0.11);
-   kp_yS = new DoubleSpinBox(ctrl_groupbox->LastRowLastCol(), "kp_y", " ", 0, 3, 0.01, 3,0.11);
-   kp_zS = new DoubleSpinBox(ctrl_groupbox->LastRowLastCol(), "kp_z", " ", 0, 3, 0.01, 3,0.11);
+   kp_yS = new DoubleSpinBox(ctrl_groupbox->LastRowLastCol(), "kp_y", " ", 0, 3, 0.01, 3,0.03);
+   kp_zS = new DoubleSpinBox(ctrl_groupbox->LastRowLastCol(), "kp_z", " ", 0, 3, 0.01, 3,0.03);
 }
 
 
@@ -523,6 +523,7 @@ void VelCtrl::calculateDesiredVel(Vector3Df &desiredVelocity, const Vector3Df &c
     } else {
         _R.Normalize();
     }
+    // Thread::Info("R: %f %f %f\n", _R.x, _R.y, _R.z);
     // Define a tangential vector as unit vector in the z direction
     Vector3Df _T(0.0f, 0.0f, 1.0f);
 
@@ -536,6 +537,7 @@ void VelCtrl::calculateDesiredVel(Vector3Df &desiredVelocity, const Vector3Df &c
 
     float mu_far = tanhf(b * distance);
     float mu_close = 1.0f / coshf(b * distance); // sech(x) = 1/cosh(x)
+    Thread::Info("mu_far: %f mu_close: %f\n", mu_far, mu_close);
     // Compute the desired velocity using the velocity field
     desiredVelocity = k_r * (mu_far * _R) + k_t * (mu_close * _T);
 }
