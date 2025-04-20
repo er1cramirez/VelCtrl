@@ -63,7 +63,13 @@ class VelCtrl : public flair::meta::UavStateMachine {
         void GetCurrentUavState(flair::core::Vector3Df & pos, flair::core::Vector3Df &vel, flair::core::Quaternion &quat, flair::core::Vector3Df &angVel);
         void computeVelCtrl(flair::core::Quaternion &refOrientation,
                             flair::core::Vector3Df &refAngularRates);
-        
+        void calculateVirtualCtrl(flair::core::Quaternion &refOrientation, flair::core::Vector3Df &refOmega, float &thrust,
+            const flair::core::Vector3Df &ui, const flair::core::Vector3Df &uip);
+        void calculate_virtual_control(flair::core::Quaternion& q_d, flair::core::Vector3Df& omega_d,
+            const flair::core::Vector3Df& ui, const flair::core::Vector3Df& uip, float psi_d, float psip_d);
+        void calculateDesiredVel(flair::core::Vector3Df &desiredVelocity,
+            const flair::core::Vector3Df &currentPosition,
+            const flair::core::Vector3Df &targetPosition);
         void StartCustomControl(void);
         void StopCustomControl(void);
         void SetupGUI(void);

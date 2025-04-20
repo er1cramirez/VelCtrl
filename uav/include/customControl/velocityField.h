@@ -35,13 +35,13 @@ class VelocityField {
             radialDistance.z = 0.0f; // Ignore the z component for 2D distance
             // Compute the radial distance
             float distance = radialDistance.GetNorm();
-            // Avoid division by zero
-            if (distance < minimumDistance) {
-                distance = minimumDistance;
-            }
             // Get the radial component as a unit vector of the radial distance vector
             flair::core::Vector3Df _R = radialDistance;
-            _R.Normalize();
+            if (distance < minimumDistance) {
+                _R = flair::core::Vector3Df(0.0f, 0.0f, 0.0f); // Avoid division by zero
+            } else {
+                _R.Normalize();
+            }
             // Define a tangential vector as unit vector in the z direction
             flair::core::Vector3Df _T(0.0f, 0.0f, 1.0f);
 
