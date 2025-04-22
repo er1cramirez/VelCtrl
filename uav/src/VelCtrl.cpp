@@ -146,12 +146,12 @@ void VelCtrl::computeVelCtrl(Quaternion &refOrientation, Vector3Df &refOmega) {
         * u_dot = (0,0,0)
     */
     // Vector3Df u, u_dot;
-    u.x = kp_xS->Value() * (desiredVelocity.x - vel.x);
-    u.y = kp_yS->Value() * (desiredVelocity.y - vel.y);
-    u.z = kp_zS->Value() * (desiredVelocity.z - vel.z) - fabs(gOfsetS->Value());
+    u.x = -(float)kp_xS->Value() * (vel.x - desiredVelocity.x);
+    u.y = -(float)kp_yS->Value() * (vel.y - desiredVelocity.y);
+    u.z = -(float)kp_zS->Value() * (vel.z - desiredVelocity.z) - (float)gOfsetS->Value();
 
     // Thread::Info("Control output: %f %f %f\n", u.x, u.y, u.z);
-    u.Saturate(2.0f);
+    // u.Saturate(2.0f);
     u_dot.x = 0.0f;
     u_dot.y = 0.0f;
     u_dot.z = 0.0f;
@@ -537,7 +537,7 @@ void VelCtrl::calculateDesiredVel(Vector3Df &desiredVelocity, const Vector3Df &c
 
     float mu_far = tanhf(b * distance);
     float mu_close = 1.0f / coshf(b * distance); // sech(x) = 1/cosh(x)
-    Thread::Info("mu_far: %f mu_close: %f\n", mu_far, mu_close);
+    // Thread::Info("mu_far: %f mu_close: %f\n", mu_far, mu_close);
     // Compute the desired velocity using the velocity field
     desiredVelocity = k_r * (mu_far * _R) + k_t * (mu_close * _T);
 }
